@@ -12,41 +12,43 @@ contract SharePayTest is Test {
     }
 
     function test_CreateBill() public {
+        vm.prank(address(0));
         pay.createBill("test_bill", 100);
-        (SharePay.Bill memory b, ) = pay.getBill("test_bill");
+        SharePay.Bill memory b = pay.getBill(address(0), "test_bill");
         assertEq(b.title, "test_bill");
         assertEq(b.amount, 100);
 
         // failure cases
-        (SharePay.Bill memory c, ) = pay.getBill("null_bill");
-        assert(pay.isBillNull(c));
-        assert(!pay.isBillNull(b));
+        vm.expectRevert();
+        pay.getBill(address(0), "null_bill");
     }
 
     function test_AddParticipant() public {
         string memory bill_name = "test_bill";
+        address owner = address(0);
+        address participant = address(1);
 
         // create bill
-        vm.prank(address(0));
+        vm.prank(owner);
         pay.createBill(bill_name, 100);
-        (SharePay.Bill memory b, ) = pay.getBill(bill_name);
+        SharePay.Bill memory b = pay.getBill(owner, bill_name);
         assertEq(b.requests.length, 0);
 
         // request participation
-        vm.prank(address(1));
-        pay.requestToJoin(bill_name);
-        (b, ) = pay.getBill(bill_name);
+        vm.prank(participant);
+        pay.requestToJoin(owner, bill_name);
+        b = pay.getBill(owner, bill_name);
         assertEq(b.requests.length, 1);
         assertEq(b.participants.length, 0);
 
         // failure case (non-owner)
         vm.expectRevert();
-        pay.acceptRequest(bill_name, address(1));
+        pay.acceptRequest(bill_name, participant);
 
         // accept participation
-        vm.prank(address(0));
+        vm.prank(owner);
         pay.acceptRequest(bill_name, address(1));
-        (b, ) = pay.getBill(bill_name);
+        b = pay.getBill(owner, bill_name);
         assertEq(b.participants.length, 1);
     }
 }

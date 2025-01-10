@@ -11,7 +11,8 @@ contract SharePay {
     }
 
     address private _owner;
-    Bill[] private _bills;
+    mapping(address => mapping(string => Bill)) private _bills;
+    // Bill[] private _bills;
 
 
     constructor() {
@@ -36,38 +37,34 @@ contract SharePay {
 
     // Create a bill
     function createBill(string memory _title, uint _amount) public {
-        _bills.push(Bill({owner: msg.sender, title: _title, amount: _amount, participants: new address[](0), requests: new address[](0)}));
+        _bills[msg.sender][_title] = Bill({owner: msg.sender, title: _title, amount: _amount, participants: new address[](0), requests: new address[](0)});
     }
 
     // Get a bill
-    function getBill(string memory _title) public view returns (Bill memory, uint) {
-        for (uint i = 0; i < _bills.length; i++) {
-            if (areStringsEqual(_bills[i].title, _title)) {
-                return (_bills[i], i);
-            }
-        }
+    function getBill(address _bill_owner, string memory _title) public view returns (Bill memory) {
+        Bill memory b = _bills[_bill_owner][_title];
+        assert(!isBillNull(b));
 
-        return (nullBill(), 0);
+        return b;
     }
 
     /* PARTICIPANT INTERACTIONS */
 
     // Request to join a bill
-    function requestToJoin(string memory _title) public {
-        (Bill memory req_bill, uint index) = getBill(_title);
-        require(!isBillNull(req_bill));
+    function requestToJoin(address _bill_owner, string memory _title) public {
+        // check that bill exists
+        getBill(_bill_owner, _title);
 
-        _bills[index].requests.push(msg.sender);
+        _bills[_bill_owner][_title].requests.push(msg.sender);
     }
 
     function acceptRequest(string memory _title, address requester) public {
-        (Bill memory req_bill, uint index) = getBill(_title);
-        require(!isBillNull(req_bill));
-        require(req_bill.owner == msg.sender);
+        // check that bill exists
+        Bill memory b = getBill(msg.sender, _title);
 
-        for (uint i = 0; i < req_bill.requests.length; i++) {
-            if (req_bill.requests[i] == requester) {
-                _bills[index].participants.push(requester);
+        for (uint i = 0; i < b.requests.length; i++) {
+            if (b.requests[i] == requester) {
+                _bills[msg.sender][_title].participants.push(requester);
             }
         }
     }
