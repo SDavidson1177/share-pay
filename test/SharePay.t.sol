@@ -67,15 +67,15 @@ contract SharePayTest is Test {
         string memory _bill_name = "test_bill";
         address[] memory participants = new address[](4);
         for (uint160 i = 0; i < 4; i++) {
-            participants[i] = address(i+1);
+            participants[i] = address(i+1234);
         }
         
         // Fund accounts
         vm.prank(owner);
-        pay.createBill(_bill_name, 100 ether);
-        vm.deal(owner, 1000 ether);
+        pay.createBill(_bill_name, 29);
+        vm.deal(owner, 1000);
         for (uint i = 0; i < 4; i++) {
-            vm.deal(participants[i], 1000 ether);
+            vm.deal(participants[i], 1000);
         }
 
         // Add participants
@@ -84,24 +84,31 @@ contract SharePayTest is Test {
         // Participants deposit
         for (uint i = 0; i < 4; i++) {
             vm.prank(participants[i]);
-            pay.deposit{value: 20 ether}();
+            pay.deposit{value: 20}();
+            assertEq(participants[i].balance, 980);
         }
-        assertEq(address(pay).balance, 80 ether);
+        assertEq(address(pay).balance, 80);
 
         // Owner Accepts payment
+        assertEq(owner.balance, 1000);
+
         vm.prank(owner);
         pay.acceptPayment(_bill_name);
-        for (uint i = 0; i < 4; i++) {
-            assertEq(participants[i].balance, 980 ether);
-        }
+        assertEq(owner.balance, 1024);
+        assertEq(address(pay).balance, 56);
 
-        assertEq(owner.balance, 1080 ether);
-        assertEq(address(pay).balance, 0 ether);
+        // Since there is a remainder when splitting the bill, owner and participants
+        // need to take turns paying the extra cost. That's why the owner receives 23 wei
+        // instead of 24 wei. The owner covers the extra cost this time.
+        vm.prank(owner);
+        pay.acceptPayment(_bill_name);
+        assertEq(owner.balance, 1047);
+        assertEq(address(pay).balance, 33);
     }
 
     function test_Withdrawls() public {
         address owner = address(0);
-        address participant = address(1234);
+        address participant = address(2);
         vm.deal(owner, 1000 ether);
         vm.deal(participant, 1000 ether);
 
