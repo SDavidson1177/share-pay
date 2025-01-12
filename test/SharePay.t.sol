@@ -62,7 +62,7 @@ contract SharePayTest is Test {
         assertEq(b.participants.length, 1);
     }
 
-    function test_Withdrawls() public {
+    function test_Payments() public {
         address owner = address(0);
         string memory _bill_name = "test_bill";
         address[] memory participants = new address[](4);
@@ -97,5 +97,41 @@ contract SharePayTest is Test {
 
         assertEq(owner.balance, 1080 ether);
         assertEq(address(pay).balance, 0 ether);
+    }
+
+    function test_Withdrawls() public {
+        address owner = address(0);
+        address participant = address(1234);
+        vm.deal(owner, 1000 ether);
+        vm.deal(participant, 1000 ether);
+
+        vm.prank(owner);
+        pay.deposit{value: 50 ether}();
+        assertEq(owner.balance, 950 ether);
+        assertEq(address(pay).balance, 50 ether);
+
+        vm.prank(participant);
+        pay.deposit{value: 100 ether}();
+        assertEq(participant.balance, 900 ether);
+        assertEq(address(pay).balance, 150 ether);
+
+        vm.prank(owner);
+        vm.expectRevert();
+        pay.withdraw(80 ether);
+        assertEq(address(pay).balance, 150 ether);
+
+        vm.prank(owner);
+        vm.expectRevert();
+        pay.withdraw(120 ether);
+        assertEq(address(pay).balance, 150 ether);
+
+        vm.prank(owner);
+        pay.withdraw(50 ether);
+        assertEq(owner.balance, 1000 ether);
+        assertEq(address(pay).balance, 100 ether);
+
+        vm.prank(participant);
+        pay.withdraw(100 ether);
+        assertEq(participant.balance, 1000 ether);
     }
 }

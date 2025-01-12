@@ -74,17 +74,22 @@ contract SharePay {
         }
     }
 
-    // Participant deposits funds
+    // Participant deposit and withdraw funds
     function deposit() public payable {
         _balances[msg.sender] += msg.value;
+    }
+
+    function withdraw(uint amount) public payable {
+        assert(_balances[msg.sender] >= amount && address(this).balance >= amount);
+        _balances[msg.sender] -= amount;
+
+        payable(msg.sender).transfer(amount);
     }
 
     // Bill owner accepts payment for a bill
     function acceptPayment(string memory _title) public payable {
         Bill memory b = getBill(msg.sender, _title);
         assert(b.owner == msg.sender);
-
-        // payable(msg.sender).transfer(10 ether);
 
         uint amount_payable = b.amount / (b.participants.length + 1);
         uint remainder = b.amount % (b.participants.length + 1);
