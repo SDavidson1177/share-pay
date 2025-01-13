@@ -74,7 +74,7 @@ contract SharePayTest is Test {
         address owner = address(0);
         string memory _bill_name = "test_bill";
         address[] memory participants = new address[](4);
-        for (uint160 i = 0; i < 4; i++) {
+        for (uint160 i = 0; i < participants.length; i++) {
             participants[i] = address(i+1234);
         }
         
@@ -153,6 +153,54 @@ contract SharePayTest is Test {
         vm.prank(owner);
         pay.acceptPayment(bill_name);
         assertEq(owner.balance, 110 ether);
+    }
+
+    function test_Leave() public {
+        address owner = address(0);
+        address[] memory participants = new address[](2);
+        string memory bill_name = "test_bill";
+        for (uint160 i = 0; i < participants.length; i++) {
+            participants[i] = address(i+1234);
+        }
+        
+        // Fund accounts
+        vm.deal(owner, 100 ether);
+        for (uint160 i = 0; i < participants.length; i++) {
+            vm.deal(participants[i], 100 ether);
+        }
+        
+        // Create Bill
+        vm.prank(owner);
+        pay.createBill(bill_name, 30 ether);
+
+        establishParticipants(owner, bill_name, participants);
+
+        // Deposit funds
+        for (uint i = 0; i < participants.length; i++) {
+            vm.prank(participants[i]);
+            pay.deposit{value: 80 ether}();
+        }
+
+        // Make payments
+        vm.prank(owner);
+        pay.acceptPayment(bill_name);
+        assertEq(owner.balance, 120 ether);
+
+        // Leave
+        vm.prank(participants[0]);
+        pay.leave(owner, bill_name);
+        
+        vm.prank(owner);
+        vm.expectRevert();
+        pay.acceptPayment(bill_name);
+
+        // Unpause remaining participant
+        vm.prank(participants[1]);
+        pay.unpause(owner, bill_name);
+
+        vm.prank(owner);
+        pay.acceptPayment(bill_name);
+        assertEq(owner.balance, 135 ether);
     }
 
     function test_Withdrawls() public {

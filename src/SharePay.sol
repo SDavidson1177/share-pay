@@ -91,6 +91,31 @@ contract SharePay {
     }
 
     // Removal from bill
+    function leave(address _bill_owner, string memory _title) public {
+        Bill memory b = getBill(_bill_owner, _title);
+
+        uint j = 0;
+        uint i = 0;
+        for (; i < b.participants.length; i++) {
+            if (b.requests[i] == msg.sender) {
+                j = i + 1;
+            } else {
+                // Pause all participants. Since each participant will need
+                // to pay more when a someone leaves, they should opt
+                // back in by unpausing themselves.
+                _paused[_bill_owner][_title][b.participants[i]] = true;
+            }
+
+            if (i < j && j < b.participants.length) {
+                _bills[_bill_owner][_title].participants[i] = _bills[_bill_owner][_title].participants[j];
+            }
+
+            j++;
+        }
+
+        assert(i != j);
+        _bills[_bill_owner][_title].participants.pop();
+    }
     
     // Participant deposit and withdraw funds
     function deposit() public payable {
@@ -136,6 +161,8 @@ contract SharePay {
 
                 _balances[b.participants[i]] -= amount_payable + rem;
                 payable(b.owner).transfer(amount_payable + rem);
+            } else {
+                assert(b.owner.balance >= amount_payable + rem);
             }
 
             i = (i + 1) % (b.participants.length + 1);
