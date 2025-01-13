@@ -21,6 +21,14 @@ contract SharePayTest is Test {
         }
     }
 
+    function establishParticipant(address _owner, string memory _title, address participant) private {
+        vm.prank(participant);
+        pay.requestToJoin(_owner, _title);
+
+        vm.prank(_owner);
+        pay.acceptRequest(_title, participant);
+    }
+
     function test_CreateBill() public {
         vm.prank(address(0));
         pay.createBill("test_bill", 100);
@@ -104,6 +112,47 @@ contract SharePayTest is Test {
         pay.acceptPayment(_bill_name);
         assertEq(owner.balance, 1047);
         assertEq(address(pay).balance, 33);
+    }
+
+    function test_Pause() public {
+        address owner = address(0);
+        address participant = address(1234);
+        string memory bill_name = "test_bill";
+        
+        // Fund accounts
+        vm.deal(owner, 100 ether);
+        vm.deal(participant, 100 ether);
+
+        // Create Bill
+        vm.prank(owner);
+        pay.createBill(bill_name, 10 ether);
+
+        establishParticipant(owner, bill_name, participant);
+
+        // Deposit funds
+        vm.prank(participant);
+        pay.deposit{value: 50 ether}();
+
+        // Make payments
+        vm.prank(owner);
+        pay.acceptPayment(bill_name);
+        assertEq(owner.balance, 105 ether);
+
+        // Pause
+        vm.prank(participant);
+        pay.pause(owner, bill_name);
+        
+        vm.prank(owner);
+        vm.expectRevert();
+        pay.acceptPayment(bill_name);
+
+        // Unpause
+        vm.prank(participant);
+        pay.unpause(owner, bill_name);
+
+        vm.prank(owner);
+        pay.acceptPayment(bill_name);
+        assertEq(owner.balance, 110 ether);
     }
 
     function test_Withdrawls() public {

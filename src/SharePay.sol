@@ -14,6 +14,7 @@ contract SharePay {
     address private _owner;
     mapping(address => mapping(string => Bill)) private _bills;
     mapping(address => uint) private _balances;
+    mapping(address => mapping(string => mapping(address => bool))) private _paused;
 
     constructor() {
         _owner = msg.sender;
@@ -76,6 +77,21 @@ contract SharePay {
         }
     }
 
+    // Pause bill payments
+    function pause(address _bill_owner, string memory _title) public {
+        _paused[_bill_owner][_title][msg.sender] = true;
+    }
+
+    function unpause(address _bill_owner, string memory _title) public {
+        _paused[_bill_owner][_title][msg.sender] = false;
+    }
+
+    function isPaused(address _bill_owner, string memory _title, address participant) public view returns(bool) {
+        return _paused[_bill_owner][_title][participant];
+    }
+
+    // Removal from bill
+    
     // Participant deposit and withdraw funds
     function deposit() public payable {
         _balances[msg.sender] += msg.value;
@@ -115,7 +131,9 @@ contract SharePay {
 
             // Only send money if we are not accounting for the owner's share
             if (i != b.participants.length) {
+                assert(!isPaused(b.owner, _title, b.participants[i]));
                 assert(_balances[b.participants[i]] >= amount_payable + rem);
+
                 _balances[b.participants[i]] -= amount_payable + rem;
                 payable(b.owner).transfer(amount_payable + rem);
             }
