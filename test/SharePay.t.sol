@@ -29,9 +29,14 @@ contract SharePayTest is Test {
         pay.acceptRequest(_title, participant);
     }
 
+    function payAndWarp(string memory _title, uint _warp_time) private {
+        pay.acceptPayment(_title);
+        vm.warp(block.timestamp + _warp_time);
+    }
+
     function test_CreateBill() public {
         vm.prank(address(0));
-        pay.createBill("test_bill", 100);
+        pay.createBill("test_bill", 100, 4 weeks);
         SharePay.Bill memory b = pay.getBill(address(0), "test_bill");
         assertEq(b.title, "test_bill");
         assertEq(b.amount, 100);
@@ -48,7 +53,7 @@ contract SharePayTest is Test {
 
         // create bill
         vm.prank(owner);
-        pay.createBill(bill_name, 100);
+        pay.createBill(bill_name, 100, 4 weeks);
         SharePay.Bill memory b = pay.getBill(owner, bill_name);
         assertEq(b.requests.length, 0);
 
@@ -80,7 +85,7 @@ contract SharePayTest is Test {
         
         // Fund accounts
         vm.prank(owner);
-        pay.createBill(_bill_name, 29);
+        pay.createBill(_bill_name, 29, 4 weeks);
         vm.deal(owner, 1000);
         for (uint i = 0; i < 4; i++) {
             vm.deal(participants[i], 1000);
@@ -101,15 +106,22 @@ contract SharePayTest is Test {
         assertEq(owner.balance, 1000);
 
         vm.prank(owner);
-        pay.acceptPayment(_bill_name);
+        payAndWarp(_bill_name, 3 weeks);
         assertEq(owner.balance, 1024);
         assertEq(address(pay).balance, 56);
 
+        // Test a delta that is too short (3 weeks, not 4 weeks)
+        vm.expectRevert();
+        vm.prank(owner);
+        payAndWarp(_bill_name, 4 weeks);
+
+        // Add proper delta.
         // Since there is a remainder when splitting the bill, owner and participants
         // need to take turns paying the extra cost. That's why the owner receives 23 wei
         // instead of 24 wei. The owner covers the extra cost this time.
+        vm.warp(block.timestamp + 4 weeks);
         vm.prank(owner);
-        pay.acceptPayment(_bill_name);
+        payAndWarp(_bill_name, 4 weeks);
         assertEq(owner.balance, 1047);
         assertEq(address(pay).balance, 33);
     }
@@ -125,7 +137,7 @@ contract SharePayTest is Test {
 
         // Create Bill
         vm.prank(owner);
-        pay.createBill(bill_name, 10 ether);
+        pay.createBill(bill_name, 10 ether, 4 weeks);
 
         establishParticipant(owner, bill_name, participant);
 
@@ -135,7 +147,7 @@ contract SharePayTest is Test {
 
         // Make payments
         vm.prank(owner);
-        pay.acceptPayment(bill_name);
+        payAndWarp(bill_name, 4 weeks);
         assertEq(owner.balance, 105 ether);
 
         // Pause
@@ -144,14 +156,14 @@ contract SharePayTest is Test {
         
         vm.prank(owner);
         vm.expectRevert();
-        pay.acceptPayment(bill_name);
+        payAndWarp(bill_name, 4 weeks);
 
         // Unpause
         vm.prank(participant);
         pay.unpause(owner, bill_name);
 
         vm.prank(owner);
-        pay.acceptPayment(bill_name);
+        payAndWarp(bill_name, 4 weeks);
         assertEq(owner.balance, 110 ether);
     }
 
@@ -171,7 +183,7 @@ contract SharePayTest is Test {
         
         // Create Bill
         vm.prank(owner);
-        pay.createBill(bill_name, 30 ether);
+        pay.createBill(bill_name, 30 ether, 4 weeks);
 
         establishParticipants(owner, bill_name, participants);
 
@@ -183,7 +195,7 @@ contract SharePayTest is Test {
 
         // Make payments
         vm.prank(owner);
-        pay.acceptPayment(bill_name);
+        payAndWarp(bill_name, 4 weeks);
         assertEq(owner.balance, 120 ether);
 
         // Leave
@@ -192,14 +204,14 @@ contract SharePayTest is Test {
         
         vm.prank(owner);
         vm.expectRevert();
-        pay.acceptPayment(bill_name);
+        payAndWarp(bill_name, 4 weeks);
 
         // Unpause remaining participant
         vm.prank(participants[1]);
         pay.unpause(owner, bill_name);
 
         vm.prank(owner);
-        pay.acceptPayment(bill_name);
+        payAndWarp(bill_name, 4 weeks);
         assertEq(owner.balance, 135 ether);
     }
 

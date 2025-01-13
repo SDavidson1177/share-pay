@@ -7,6 +7,8 @@ contract SharePay {
         string title;
         uint amount;
         uint remainder_index;
+        uint delta;
+        uint last_payment;
         address[] participants;
         address[] requests;
     }
@@ -37,7 +39,7 @@ contract SharePay {
 
     // Create a null bill
     function nullBill() public view returns (Bill memory) {
-        return Bill(msg.sender, "", 0, 0, new address[](0), new address[](0));
+        return Bill(msg.sender, "", 0, 0, 0, 0, new address[](0), new address[](0));
     }
 
     // Check if a bill is null
@@ -46,9 +48,9 @@ contract SharePay {
     }
 
     // Create a bill
-    function createBill(string memory _title, uint _amount) public {
+    function createBill(string memory _title, uint _amount, uint _delta) public {
         _bills[msg.sender][_title] = Bill({owner: msg.sender, title: _title, amount: _amount, remainder_index: 0, 
-        participants: new address[](0), requests: new address[](0)});
+        delta: _delta, last_payment: 0, participants: new address[](0), requests: new address[](0)});
     }
 
     // Get a bill
@@ -134,6 +136,7 @@ contract SharePay {
         Bill memory b = getBill(msg.sender, _title);
         assert(b.owner == msg.sender);
         assert(b.participants.length > 0);
+        assert(b.last_payment == 0 || (b.last_payment != 0 && block.timestamp - b.last_payment >= b.delta));
 
         uint amount_payable = b.amount / (b.participants.length + 1);
         uint remainder = b.amount % (b.participants.length + 1);
@@ -169,6 +172,7 @@ contract SharePay {
         } while (i != stop);
 
         // Save changes to bill
+        b.last_payment = block.timestamp;
         _bills[msg.sender][_title] = b;
     }
 }
