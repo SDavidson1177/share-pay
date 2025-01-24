@@ -124,6 +124,10 @@ contract SharePay {
         _balances[msg.sender] += msg.value;
     }
 
+    function balance() public view returns(uint) {
+        return _balances[msg.sender];
+    }
+
     function withdraw(uint amount) public payable {
         assert(_balances[msg.sender] >= amount && address(this).balance >= amount);
         _balances[msg.sender] -= amount;
