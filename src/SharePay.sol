@@ -17,6 +17,7 @@ contract SharePay {
     mapping(address => mapping(string => Bill)) private _bills;
     mapping(address => uint) private _balances;
     mapping(address => mapping(string => mapping(address => bool))) private _paused;
+    mapping(address => string[]) private _bill_list;
 
     constructor() {
         _owner = msg.sender;
@@ -51,6 +52,7 @@ contract SharePay {
     function createBill(string memory _title, uint _amount, uint _delta) public {
         _bills[msg.sender][_title] = Bill({owner: msg.sender, title: _title, amount: _amount, remainder_index: 0, 
         delta: _delta, last_payment: 0, participants: new address[](0), requests: new address[](0)});
+        _bill_list[msg.sender].push(_title);
     }
 
     // Get a bill
@@ -59,6 +61,17 @@ contract SharePay {
         assert(!isBillNull(b));
 
         return b;
+    }
+
+    // Get bills
+    function getBills(address _bill_owner) public view returns (Bill[] memory) {
+        assert(_bill_list[_bill_owner].length > 0);
+        Bill[] memory bills = new Bill[](_bill_list[_bill_owner].length);
+        for (uint i = 0; i < _bill_list[_bill_owner].length; i++) {
+            bills[i] = _bills[_bill_owner][_bill_list[_bill_owner][i]];
+        }
+
+        return bills;
     }
 
     /* Participant Interactions */

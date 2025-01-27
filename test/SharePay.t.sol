@@ -250,4 +250,29 @@ contract SharePayTest is Test {
         pay.withdraw(100 ether);
         assertEq(participant.balance, 1000 ether);
     }
+
+    function test_ListBills() public {
+        address owner = address(0);
+        address participant = address(2);
+        vm.deal(owner, 1000 ether);
+        vm.deal(participant, 1000 ether);
+
+        // Create Bills
+        vm.prank(owner);
+        pay.createBill("test1", 10 ether, 4 weeks);
+
+        vm.prank(owner);
+        pay.createBill("test2", 10 ether, 4 weeks);
+
+        vm.prank(owner);
+        pay.createBill("test3", 10 ether, 4 weeks);
+
+        vm.prank(owner);
+        pay.createBill("test4", 10 ether, 4 weeks);
+
+        // List Bills
+        SharePay.Bill[] memory bills = pay.getBills(owner);
+        assertEq(bills.length, 4);
+        assertEq(bills[2].title, "test3");
+    }
 }
