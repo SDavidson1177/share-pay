@@ -107,8 +107,8 @@ contract SharePayTest is Test {
 
         vm.prank(owner);
         payAndWarp(_bill_name, 3 weeks);
-        assertEq(owner.balance, 1024);
-        assertEq(address(pay).balance, 56);
+        vm.prank(owner);
+        assertEq(pay.balance(), 24);
 
         // Test a delta that is too short (3 weeks, not 4 weeks)
         vm.expectRevert();
@@ -122,8 +122,8 @@ contract SharePayTest is Test {
         vm.warp(block.timestamp + 4 weeks);
         vm.prank(owner);
         payAndWarp(_bill_name, 4 weeks);
-        assertEq(owner.balance, 1047);
-        assertEq(address(pay).balance, 33);
+        vm.prank(owner);
+        assertEq(pay.balance(), 47);
     }
 
     function test_Pause() public {
@@ -148,7 +148,8 @@ contract SharePayTest is Test {
         // Make payments
         vm.prank(owner);
         payAndWarp(bill_name, 4 weeks);
-        assertEq(owner.balance, 105 ether);
+        vm.prank(owner);
+        assertEq(pay.balance(), 5 ether);
 
         // Pause
         vm.prank(participant);
@@ -164,7 +165,8 @@ contract SharePayTest is Test {
 
         vm.prank(owner);
         payAndWarp(bill_name, 4 weeks);
-        assertEq(owner.balance, 110 ether);
+        vm.prank(owner);
+        assertEq(pay.balance(), 10 ether);
     }
 
     function test_Leave() public {
@@ -196,7 +198,8 @@ contract SharePayTest is Test {
         // Make payments
         vm.prank(owner);
         payAndWarp(bill_name, 4 weeks);
-        assertEq(owner.balance, 120 ether);
+        vm.prank(owner);
+        assertEq(pay.balance(), 20 ether);
 
         // Leave
         vm.prank(participants[0]);
@@ -212,7 +215,8 @@ contract SharePayTest is Test {
 
         vm.prank(owner);
         payAndWarp(bill_name, 4 weeks);
-        assertEq(owner.balance, 135 ether);
+        vm.prank(owner);
+        assertEq(pay.balance(), 35 ether);
     }
 
     function test_Withdrawls() public {

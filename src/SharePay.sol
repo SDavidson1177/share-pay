@@ -98,6 +98,20 @@ contract SharePay {
                 // Add bill
                 _bills[msg.sender][_title].participants.push(requester);
                 _bill_list[requester].push(BillIndex(msg.sender, _title));
+
+                // Update the request array
+                address[] memory new_requests = new address[](b.requests.length - 1);
+                uint offset = 0;
+                for (uint j = 0; j < b.requests.length; j++) {
+                    if (j == i) {
+                        offset++;
+                        continue;
+                    }
+
+                    new_requests[j-offset] = b.requests[j];
+                }
+
+                _bills[msg.sender][_title].requests = new_requests;
             }
         }
     }
@@ -122,7 +136,7 @@ contract SharePay {
         uint j = 0;
         uint i = 0;
         for (; i < b.participants.length; i++) {
-            if (b.requests[i] == msg.sender) {
+            if (b.participants[i] == msg.sender) {
                 j = i + 1;
             } else {
                 // Pause all participants. Since each participant will need
@@ -190,7 +204,7 @@ contract SharePay {
                 assert(_balances[b.participants[i]] >= amount_payable + rem);
 
                 _balances[b.participants[i]] -= amount_payable + rem;
-                payable(b.owner).transfer(amount_payable + rem);
+                _balances[b.owner] += amount_payable + rem;
             } else {
                 assert(b.owner.balance >= amount_payable + rem);
             }
