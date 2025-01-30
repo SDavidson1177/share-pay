@@ -257,6 +257,10 @@ contract SharePayTest is Test {
         vm.deal(owner, 1000 ether);
         vm.deal(participant, 1000 ether);
 
+        // List Bills
+        SharePay.Bill[] memory bills_empty = pay.getBills(owner);
+        assertEq(bills_empty.length, 0);
+
         // Create Bills
         vm.prank(owner);
         pay.createBill("test1", 10 ether, 4 weeks);
@@ -274,5 +278,14 @@ contract SharePayTest is Test {
         SharePay.Bill[] memory bills = pay.getBills(owner);
         assertEq(bills.length, 4);
         assertEq(bills[2].title, "test3");
+
+        // Check that participant can see bills that it joins
+        vm.prank(participant);
+        pay.requestToJoin(owner, "test1");
+        vm.prank(owner);
+        pay.acceptRequest("test1", participant);
+        SharePay.Bill[] memory bills_part = pay.getBills(participant);
+        assertEq(bills_part.length, 1);
+        assertEq(bills_part[0].owner, owner);
     }
 }
