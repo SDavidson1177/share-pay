@@ -23,6 +23,7 @@ contract SharePay {
     mapping(address => uint) private _balances;
     mapping(address => mapping(string => mapping(address => bool))) private _paused;
     mapping(address => BillIndex[]) private _bill_list;
+    mapping(address => BillIndex[]) private _pending_requests;
 
     constructor() {
         _owner = msg.sender;
@@ -84,9 +85,72 @@ contract SharePay {
 
     /* Participant Interactions */
 
-    // Request to join a bill
-    function requestToJoin(address _bill_owner, string memory _title) public billExists(_bill_owner, _title) {
+    // Request to join a bill. Returns true if a new request waw submitted, and false if the sender is already a participant
+    // or has a pending request.
+    function requestToJoin(address _bill_owner, string memory _title) public billExists(_bill_owner, _title) returns(bool) {
+        // Check that this address is not already a participant, or has a pending request
+        for (uint i = 0; i < _bills[_bill_owner][_title].participants.length; i++) {
+            if (_bills[_bill_owner][_title].participants[i] == msg.sender) {
+                return false;
+            }
+        }
+
+        for (uint i = 0; i < _pending_requests[msg.sender].length; i++) {
+            if (_pending_requests[msg.sender][i].owner == _bill_owner &&
+                areStringsEqual(_pending_requests[msg.sender][i].title, _title)) {
+                return false;
+            }
+        }
+
         _bills[_bill_owner][_title].requests.push(msg.sender);
+        _pending_requests[msg.sender].push(BillIndex(_bill_owner, _title));
+        return true;
+    }
+
+    // Generric request cancellation
+    function cancelRequest(address _bill_owner, string memory _title, address _requester) private returns(bool) {
+        uint16 cancellations = 0;
+
+        for (uint i = 0; i < _bills[_bill_owner][_title].requests.length; i++) {
+            if (_bills[_bill_owner][_title].requests[i] == _requester) {
+                cancellations++;
+                for (uint j = i + 1; j < _bills[_bill_owner][_title].requests.length; j++) {
+                    _bills[_bill_owner][_title].requests[j-1] = _bills[_bill_owner][_title].requests[j];
+                }
+                _bills[_bill_owner][_title].requests.pop();
+            }
+        }
+
+        for (uint i = 0; i < _pending_requests[_requester].length; i++) {
+            if (_pending_requests[_requester][i].owner == _bill_owner && 
+            areStringsEqual(_pending_requests[_requester][i].title, _title)) {
+                cancellations++;
+                for (uint j = i + 1; j < _pending_requests[_requester].length; j++) {
+                    _pending_requests[_requester][j-1] = _pending_requests[_requester][j];
+                }
+                _pending_requests[_requester].pop();
+            }
+        }
+
+        assert(cancellations == 2);
+        return true;
+    }
+
+    // Cancel request to join. Returns true if request was successfully cancelled, and false
+    // if the request did not exist.
+    function cancelRequestToJoin(address _bill_owner, string memory _title) public billExists(_bill_owner, _title) returns(bool) {
+        return cancelRequest(_bill_owner, _title, msg.sender);
+    }
+
+    // Cancel request to join. Returns true if request was successfully cancelled, and false
+    // if the request did not exist.
+    function declineRequestToJoin(address _requester, string memory _title) public billExists(msg.sender, _title) returns(bool) {
+        return cancelRequest(msg.sender, _title, _requester);
+    }
+
+    // Get all pending requests
+    function getPendingRequests() public view returns(BillIndex[] memory) {
+        return _pending_requests[msg.sender];
     }
 
     function acceptRequest(string memory _title, address requester) public {
@@ -99,19 +163,8 @@ contract SharePay {
                 _bills[msg.sender][_title].participants.push(requester);
                 _bill_list[requester].push(BillIndex(msg.sender, _title));
 
-                // Update the request array
-                address[] memory new_requests = new address[](b.requests.length - 1);
-                uint offset = 0;
-                for (uint j = 0; j < b.requests.length; j++) {
-                    if (j == i) {
-                        offset++;
-                        continue;
-                    }
-
-                    new_requests[j-offset] = b.requests[j];
-                }
-
-                _bills[msg.sender][_title].requests = new_requests;
+                // Remove the request
+                cancelRequest(msg.sender, _title, requester);
             }
         }
     }

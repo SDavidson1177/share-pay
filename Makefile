@@ -1,5 +1,11 @@
 include .env_dev
 
+build:
+	forge build --extra-output-files abi
+
+serve:
+	anvil -b 4 --chain-id 1337
+
 setup: clean
 	cp .env_dev .env_orig
 
