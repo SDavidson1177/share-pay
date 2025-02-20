@@ -12,3 +12,7 @@ docs/
 
 # Dotenv file
 .env
+.env_orig
+
+# Others
+*.txt
