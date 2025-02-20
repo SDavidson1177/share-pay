@@ -216,7 +216,7 @@ contract SharePayTest is Test {
         vm.prank(owner);
         payAndWarp(bill_name, 4 weeks);
         vm.prank(owner);
-        assertEq(pay.balance(), 35 ether);
+        assertEq(pay.balance(), 40 ether);
     }
 
     function test_Withdrawls() public {

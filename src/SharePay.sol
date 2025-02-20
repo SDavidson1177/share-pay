@@ -183,13 +183,13 @@ contract SharePay {
     }
 
     // Removal from bill
-    function leave(address _bill_owner, string memory _title) public {
+    function exitBill(address _bill_owner, string memory _title, address _participant) private returns(bool) {
         Bill memory b = getBill(_bill_owner, _title);
 
         uint j = 0;
         uint i = 0;
         for (; i < b.participants.length; i++) {
-            if (b.participants[i] == msg.sender) {
+            if (b.participants[i] == _participant) {
                 j = i + 1;
             } else {
                 // Pause all participants. Since each participant will need
@@ -205,8 +205,39 @@ contract SharePay {
             j++;
         }
 
-        assert(i != j);
+        if (i == j) {
+            return false;
+        }
+
+        // Remove from bill list
+        j = 0;
+        i = 0;
+        for (; j < _bill_list[_participant].length; i++) {
+            if (_bill_list[_participant][i].owner == _bill_owner && areStringsEqual(_bill_list[_participant][i].title, _title)) {
+                j++;
+                if (j >= _bill_list[_participant].length) {
+                    break;
+                }
+            }
+
+            if (i != j) {
+                _bill_list[_participant][i] = _bill_list[_participant][j];
+            }
+
+            j++;
+        }
+
         _bills[_bill_owner][_title].participants.pop();
+        _bill_list[_participant].pop();
+        return true;
+    }
+
+    function leave(address _bill_owner, string memory _title) public returns(bool) {
+        return exitBill(_bill_owner, _title, msg.sender);
+    }
+
+    function removeParticipant(address _participant, string memory _title) public returns(bool) {
+        return exitBill(msg.sender, _title, _participant);
     }
     
     // Participant deposit and withdraw funds
