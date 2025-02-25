@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-contract SharePay {
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
+contract SharePay is OwnableUpgradeable {
     struct Bill {
         address owner;
         string title;
@@ -18,6 +20,12 @@ contract SharePay {
         string title;
     }
 
+    struct BillResponse {
+        Bill bill;
+        bool paused;
+        address[] all_paused;
+    }
+
     address private _owner;
     mapping(address => mapping(string => Bill)) private _bills;
     mapping(address => uint) private _balances;
@@ -25,11 +33,17 @@ contract SharePay {
     mapping(address => BillIndex[]) private _bill_list;
     mapping(address => BillIndex[]) private _pending_requests;
 
-    constructor() {
-        _owner = msg.sender;
+    constructor() initializer {
+        OwnableUpgradeable.__Ownable_init(msg.sender);
     }
 
-    receive() external payable {}
+    function initialize() public initializer {
+        OwnableUpgradeable.__Ownable_init(msg.sender);
+    }
+
+    receive() external payable {
+        deposit();
+    }
 
     modifier billExists(address _bill_owner, string memory _title) {
         Bill memory b = _bills[_bill_owner][_title];
@@ -70,14 +84,25 @@ contract SharePay {
     }
 
     // Get bills
-    function getBills(address _bill_owner) public view returns (Bill[] memory) {
-        if (_bill_list[_bill_owner].length == 0) {
-            return new Bill[](0);
+    function getBills(address user) public view returns (BillResponse[] memory) {
+        if (_bill_list[user].length == 0) {
+            return new BillResponse[](0);
         }
 
-        Bill[] memory bills = new Bill[](_bill_list[_bill_owner].length);
-        for (uint i = 0; i < _bill_list[_bill_owner].length; i++) {
-            bills[i] = _bills[_bill_list[_bill_owner][i].owner][_bill_list[_bill_owner][i].title];
+        BillResponse[] memory bills = new BillResponse[](_bill_list[user].length);
+        for (uint i = 0; i < _bill_list[user].length; i++) {
+            // find all paused
+            Bill memory b = _bills[_bill_list[user][i].owner][_bill_list[user][i].title];
+            address[] memory all_paused = new address[](b.participants.length);
+            bool paused = false;
+            for (uint j = 0; j < b.participants.length; j++) {
+                if ( _paused[_bill_list[user][i].owner][_bill_list[user][i].title][b.participants[j]]) {
+                    all_paused[j] = b.participants[j];
+                    paused = true;
+                }
+            }
+
+            bills[i] = BillResponse(b, paused, all_paused);
         }
 
         return bills;

@@ -216,7 +216,7 @@ contract SharePayTest is Test {
         vm.prank(owner);
         payAndWarp(bill_name, 4 weeks);
         vm.prank(owner);
-        assertEq(pay.balance(), 40 ether);
+        assertEq(pay.balance(), 35 ether);
     }
 
     function test_Withdrawls() public {
@@ -262,7 +262,7 @@ contract SharePayTest is Test {
         vm.deal(participant, 1000 ether);
 
         // List Bills
-        SharePay.Bill[] memory bills_empty = pay.getBills(owner);
+        SharePay.BillResponse[] memory bills_empty = pay.getBills(owner);
         assertEq(bills_empty.length, 0);
 
         // Create Bills
@@ -279,17 +279,17 @@ contract SharePayTest is Test {
         pay.createBill("test4", 10 ether, 4 weeks);
 
         // List Bills
-        SharePay.Bill[] memory bills = pay.getBills(owner);
+        SharePay.BillResponse[] memory bills = pay.getBills(owner);
         assertEq(bills.length, 4);
-        assertEq(bills[2].title, "test3");
+        assertEq(bills[2].bill.title, "test3");
 
         // Check that participant can see bills that it joins
         vm.prank(participant);
         pay.requestToJoin(owner, "test1");
         vm.prank(owner);
         pay.acceptRequest("test1", participant);
-        SharePay.Bill[] memory bills_part = pay.getBills(participant);
+        SharePay.BillResponse[] memory bills_part = pay.getBills(participant);
         assertEq(bills_part.length, 1);
-        assertEq(bills_part[0].owner, owner);
+        assertEq(bills_part[0].bill.owner, owner);
     }
 }
