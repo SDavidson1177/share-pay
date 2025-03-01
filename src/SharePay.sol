@@ -18,6 +18,7 @@ contract SharePay is OwnableUpgradeable {
     }
 
     error ErrBillDoesNotExist();
+    error ErrBillExists();
     error ErrIdNotFound();
     error ErrUnauthorized();
     error ErrPendingRequest();
@@ -48,6 +49,16 @@ contract SharePay is OwnableUpgradeable {
     modifier billExists(uint id) {
         Bill memory b = _bills[id];
         require(!isBillNull(b), ErrBillDoesNotExist());
+
+        _;
+    }
+
+    modifier billNotExists(address _bill_owner, string calldata _title) {
+        for (uint i = 0; i < _bill_list[_bill_owner].length; i++) {
+            if (areStringsEqual(_bills[_bill_list[_bill_owner][i]].title, _title)) {
+                revert ErrBillExists();
+            }
+        }
 
         _;
     }
@@ -127,7 +138,7 @@ contract SharePay is OwnableUpgradeable {
     }
 
     // Create a bill
-    function createBill(string memory _title, uint _amount, uint _delta) public {
+    function createBill(string calldata _title, uint _amount, uint _delta) public billNotExists(msg.sender, _title) {
         uint id = getNextId();
         _bills[id] = Bill({id: id, owner: msg.sender, title: _title, amount: _amount, remainder_index: 0, 
         delta: _delta, last_payment: 0, participants: new address[](0), requests: new address[](0), paused_participants: new address[](0)});
@@ -397,13 +408,13 @@ contract SharePay is OwnableUpgradeable {
 
             // Only send money if we are not accounting for the owner's share
             if (i != b.participants.length) {
-                assert(!isPaused(b.owner, _title, b.participants[i]));
-                assert(_balances[b.participants[i]] >= amount_payable + rem);
+                require(!isPaused(b.owner, _title, b.participants[i]));
+                require(_balances[b.participants[i]] >= amount_payable + rem);
 
                 _balances[b.participants[i]] -= amount_payable + rem;
                 _balances[b.owner] += amount_payable + rem;
             } else {
-                assert(b.owner.balance >= amount_payable + rem);
+                require(b.owner.balance >= amount_payable + rem);
             }
 
             i = (i + 1) % (b.participants.length + 1);

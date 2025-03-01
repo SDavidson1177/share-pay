@@ -41,6 +41,14 @@ contract SharePayTest is Test {
         assertEq(b.title, "test_bill");
         assertEq(b.amount, 100);
 
+        // Cannot make duplicate bill
+        vm.prank(address(0));
+        SharePay.Bill[] memory bills = pay.getBills(address(0));
+        assertEq(bills.length, 1);
+        vm.prank(address(0));
+        vm.expectRevert();
+        pay.createBill("test_bill", 50, 4 weeks);
+
         // failure cases
         vm.expectRevert();
         pay.getBillByOwnerAndTitle(address(0), "null_bill");
