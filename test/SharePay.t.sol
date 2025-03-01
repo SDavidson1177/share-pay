@@ -37,13 +37,13 @@ contract SharePayTest is Test {
     function test_CreateBill() public {
         vm.prank(address(0));
         pay.createBill("test_bill", 100, 4 weeks);
-        SharePay.Bill memory b = pay.getBill(address(0), "test_bill");
+        SharePay.Bill memory b = pay.getBillByOwnerAndTitle(address(0), "test_bill");
         assertEq(b.title, "test_bill");
         assertEq(b.amount, 100);
 
         // failure cases
         vm.expectRevert();
-        pay.getBill(address(0), "null_bill");
+        pay.getBillByOwnerAndTitle(address(0), "null_bill");
     }
 
     function test_AddParticipant() public {
@@ -54,13 +54,13 @@ contract SharePayTest is Test {
         // create bill
         vm.prank(owner);
         pay.createBill(bill_name, 100, 4 weeks);
-        SharePay.Bill memory b = pay.getBill(owner, bill_name);
+        SharePay.Bill memory b = pay.getBillByOwnerAndTitle(owner, bill_name);
         assertEq(b.requests.length, 0);
 
         // request participation
         vm.prank(participant);
         pay.requestToJoin(owner, bill_name);
-        b = pay.getBill(owner, bill_name);
+        b = pay.getBillByOwnerAndTitle(owner, bill_name);
         assertEq(b.requests.length, 1);
         assertEq(b.participants.length, 0);
 
@@ -71,7 +71,7 @@ contract SharePayTest is Test {
         // accept participation
         vm.prank(owner);
         pay.acceptRequest(bill_name, address(1));
-        b = pay.getBill(owner, bill_name);
+        b = pay.getBillByOwnerAndTitle(owner, bill_name);
         assertEq(b.participants.length, 1);
     }
 
@@ -262,7 +262,7 @@ contract SharePayTest is Test {
         vm.deal(participant, 1000 ether);
 
         // List Bills
-        SharePay.BillResponse[] memory bills_empty = pay.getBills(owner);
+        SharePay.Bill[] memory bills_empty = pay.getBills(owner);
         assertEq(bills_empty.length, 0);
 
         // Create Bills
@@ -279,17 +279,17 @@ contract SharePayTest is Test {
         pay.createBill("test4", 10 ether, 4 weeks);
 
         // List Bills
-        SharePay.BillResponse[] memory bills = pay.getBills(owner);
+        SharePay.Bill[] memory bills = pay.getBills(owner);
         assertEq(bills.length, 4);
-        assertEq(bills[2].bill.title, "test3");
+        assertEq(bills[2].title, "test3");
 
         // Check that participant can see bills that it joins
         vm.prank(participant);
         pay.requestToJoin(owner, "test1");
         vm.prank(owner);
         pay.acceptRequest("test1", participant);
-        SharePay.BillResponse[] memory bills_part = pay.getBills(participant);
+        SharePay.Bill[] memory bills_part = pay.getBills(participant);
         assertEq(bills_part.length, 1);
-        assertEq(bills_part[0].bill.owner, owner);
+        assertEq(bills_part[0].owner, owner);
     }
 }
