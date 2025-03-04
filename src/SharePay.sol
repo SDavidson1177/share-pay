@@ -113,27 +113,28 @@ contract SharePay is OwnableUpgradeable {
         _bill_list[user].push(id);
     }
 
-    function removeBillFromUser(uint id) private {
-        if (_bills[id].owner == msg.sender) {
+    function removeBillFromUser(address _user, uint id) private {
+        if (_bills[id].owner == _user) {
+            require(msg.sender == _user, ErrUnauthorized());
             setBillToNull(id);
         }
 
         uint j = 0;
         uint i = 0;
-        for (; i < _bill_list[msg.sender].length; i++) {
-            if (_bill_list[msg.sender][j] == id) {
+        for (; i < _bill_list[_user].length; i++) {
+            if (_bill_list[_user][j] == id) {
                 j++;
             }
 
-            if (j > i && j < _bill_list[msg.sender].length) {
-                _bill_list[msg.sender][i] == _bill_list[msg.sender][j];
+            if (j > i && j < _bill_list[_user].length) {
+                _bill_list[_user][i] == _bill_list[_user][j];
             }
 
             j++;
         }
 
         if (i != j) {
-            _bill_list[msg.sender].pop();
+            _bill_list[_user].pop();
         }
     }
 
@@ -199,10 +200,11 @@ contract SharePay is OwnableUpgradeable {
         // Make request
         _bills[bill.id].requests.push(msg.sender);
         _request_count[msg.sender]++;
+        addBillToUser(msg.sender, bill.id);
     }
 
     // Generic request cancellation
-    function cancelRequest(address _bill_owner, string calldata _title, address _requester) private {
+    function cancelRequest(address _bill_owner, string calldata _title, address _requester, bool _accepted) private {
         Bill memory bill = getBillByOwnerAndTitle(_bill_owner, _title);
 
         for (uint i = 0; i < bill.requests.length; i++) {
@@ -214,18 +216,22 @@ contract SharePay is OwnableUpgradeable {
                 _request_count[_requester]--;
             }
         }
+
+        if (!_accepted) {
+            removeBillFromUser(_requester, bill.id);
+        }
     }
 
     // Cancel request to join. Returns true if request was successfully cancelled, and false
     // if the request did not exist.
     function cancelRequestToJoin(address _bill_owner, string calldata _title) public {
-        cancelRequest(_bill_owner, _title, msg.sender);
+        cancelRequest(_bill_owner, _title, msg.sender, false);
     }
 
     // Cancel request to join. Returns true if request was successfully cancelled, and false
     // if the request did not exist.
     function declineRequestToJoin(address _requester, string calldata _title) public {
-        cancelRequest(msg.sender, _title, _requester);
+        cancelRequest(msg.sender, _title, _requester, false);
     }
 
     // Get all pending requests
@@ -251,10 +257,9 @@ contract SharePay is OwnableUpgradeable {
             if (b.requests[i] == _requester) {
                 // Add bill
                 _bills[b.id].participants.push(_requester);
-                _bill_list[_requester].push(b.id);
 
                 // Remove the request
-                cancelRequest(msg.sender, _title, _requester);
+                cancelRequest(msg.sender, _title, _requester, true);
             }
         }
     }
@@ -337,23 +342,7 @@ contract SharePay is OwnableUpgradeable {
         }
 
         // Remove from bill list
-        j = 0;
-        i = 0;
-        for (; j < _bill_list[_participant].length; i++) {
-            if (_bill_list[_participant][i] == b.id) {
-                j++;
-            }
-
-            if (i != j && j < _bill_list[_participant].length) {
-                _bill_list[_participant][i] = _bill_list[_participant][j];
-            }
-
-            j++;
-        }
-
-        if (i != j) {
-            _bill_list[_participant].pop();
-        }
+        removeBillFromUser(msg.sender, b.id);
     }
 
     function leave(address _bill_owner, string calldata _title) public {
