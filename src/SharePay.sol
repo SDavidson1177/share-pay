@@ -10,6 +10,7 @@ contract SharePay is OwnableUpgradeable {
         uint remainder_index;
         uint delta;
         uint last_payment;
+        uint start_payment;
         address owner;
         string title;
         address[] participants;
@@ -71,7 +72,7 @@ contract SharePay is OwnableUpgradeable {
 
     // Create a null bill
     function nullBill() public view returns (Bill memory) {
-        return Bill(0, 0, 0, 0, 0, msg.sender, "", new address[](0), new address[](0), new address[](0));
+        return Bill(0, 0, 0, 0, 0, 0, msg.sender, "", new address[](0), new address[](0), new address[](0));
     }
 
     // Check if a bill is null
@@ -139,10 +140,10 @@ contract SharePay is OwnableUpgradeable {
     }
 
     // Create a bill
-    function createBill(string calldata _title, uint _amount, uint _delta) public billNotExists(msg.sender, _title) {
+    function createBill(string calldata _title, uint _amount, uint _delta, uint _start) public billNotExists(msg.sender, _title) {
         uint id = getNextId();
         _bills[id] = Bill({id: id, owner: msg.sender, title: _title, amount: _amount, remainder_index: 0, 
-        delta: _delta, last_payment: 0, participants: new address[](0), requests: new address[](0), paused_participants: new address[](0)});
+        delta: _delta, last_payment: 0, start_payment: _start, participants: new address[](0), requests: new address[](0), paused_participants: new address[](0)});
 
         addBillToUser(msg.sender, id);
     }
@@ -372,9 +373,13 @@ contract SharePay is OwnableUpgradeable {
     // Bill owner accepts payment for a bill
     function acceptPayment(string calldata _title) public payable {
         Bill memory b = getBillByOwnerAndTitle(msg.sender, _title);
-        assert(b.owner == msg.sender);
-        assert(b.participants.length > 0);
-        assert(b.last_payment == 0 || (b.last_payment != 0 && block.timestamp - b.last_payment >= b.delta));
+        require(b.owner == msg.sender);
+        require(b.participants.length > 0);
+        if (b.last_payment == 0) {
+            require(block.timestamp >= b.start_payment);
+        } else {
+            require(block.timestamp >= b.last_payment + b.delta);
+        }
 
         uint amount_payable = b.amount / (b.participants.length + 1);
         uint remainder = b.amount % (b.participants.length + 1);
@@ -410,7 +415,11 @@ contract SharePay is OwnableUpgradeable {
         } while (i != stop);
 
         // Save changes to bill
-        b.last_payment = block.timestamp;
+        if (b.last_payment == 0) {
+            b.last_payment = b.start_payment;
+        } else {
+            b.last_payment = b.last_payment + b.delta;
+        }
         _bills[b.id] = b;
     }
 }

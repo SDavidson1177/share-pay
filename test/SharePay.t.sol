@@ -36,7 +36,7 @@ contract SharePayTest is Test {
 
     function test_CreateBill() public {
         vm.prank(address(0));
-        pay.createBill("test_bill", 100, 4 weeks);
+        pay.createBill("test_bill", 100, 4 weeks, 0);
         SharePay.Bill memory b = pay.getBillByOwnerAndTitle(address(0), "test_bill");
         assertEq(b.title, "test_bill");
         assertEq(b.amount, 100);
@@ -47,7 +47,7 @@ contract SharePayTest is Test {
         assertEq(bills.length, 1);
         vm.prank(address(0));
         vm.expectRevert();
-        pay.createBill("test_bill", 50, 4 weeks);
+        pay.createBill("test_bill", 50, 4 weeks, 0);
 
         // failure cases
         vm.expectRevert();
@@ -61,7 +61,7 @@ contract SharePayTest is Test {
 
         // create bill
         vm.prank(owner);
-        pay.createBill(bill_name, 100, 4 weeks);
+        pay.createBill(bill_name, 100, 4 weeks, 0);
         SharePay.Bill memory b = pay.getBillByOwnerAndTitle(owner, bill_name);
         assertEq(b.requests.length, 0);
 
@@ -93,7 +93,7 @@ contract SharePayTest is Test {
         
         // Fund accounts
         vm.prank(owner);
-        pay.createBill(_bill_name, 29, 4 weeks);
+        pay.createBill(_bill_name, 29, 4 weeks, 0);
         vm.deal(owner, 1000);
         for (uint i = 0; i < 4; i++) {
             vm.deal(participants[i], 1000);
@@ -145,7 +145,7 @@ contract SharePayTest is Test {
 
         // Create Bill
         vm.prank(owner);
-        pay.createBill(bill_name, 10 ether, 4 weeks);
+        pay.createBill(bill_name, 10 ether, 4 weeks, 0);
 
         establishParticipant(owner, bill_name, participant);
 
@@ -193,7 +193,7 @@ contract SharePayTest is Test {
         
         // Create Bill
         vm.prank(owner);
-        pay.createBill(bill_name, 30 ether, 4 weeks);
+        pay.createBill(bill_name, 30 ether, 4 weeks, 0);
 
         establishParticipants(owner, bill_name, participants);
 
@@ -275,16 +275,16 @@ contract SharePayTest is Test {
 
         // Create Bills
         vm.prank(owner);
-        pay.createBill("test1", 10 ether, 4 weeks);
+        pay.createBill("test1", 10 ether, 4 weeks, 0);
 
         vm.prank(owner);
-        pay.createBill("test2", 10 ether, 4 weeks);
+        pay.createBill("test2", 10 ether, 4 weeks, 0);
 
         vm.prank(owner);
-        pay.createBill("test3", 10 ether, 4 weeks);
+        pay.createBill("test3", 10 ether, 4 weeks, 0);
 
         vm.prank(owner);
-        pay.createBill("test4", 10 ether, 4 weeks);
+        pay.createBill("test4", 10 ether, 4 weeks, 0);
 
         // List Bills
         SharePay.Bill[] memory bills = pay.getBills(owner);
