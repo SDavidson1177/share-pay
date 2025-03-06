@@ -136,6 +136,14 @@ contract SharePay is OwnableUpgradeable {
 
         if (i != j) {
             _bill_list[_user].pop();
+
+            // If this user was requesting to join the bill, decrement the request count
+            for (uint k = 0; k < _bills[id].requests.length; k++) {
+                if (_bills[id].requests[k] == _user) {
+                    _request_count[_user]--;
+                    break;
+                }
+            }
         }
     }
 
@@ -344,6 +352,24 @@ contract SharePay is OwnableUpgradeable {
 
         // Remove from bill list
         removeBillFromUser(msg.sender, b.id);
+    }
+
+    function cancelBill(string calldata _title) public {
+        Bill memory b = getBillByOwnerAndTitle(msg.sender, _title);
+
+        // remove all users
+        for (uint i = 0; i < b.participants.length; i++) {
+            removeBillFromUser(b.participants[i], b.id);
+        }
+
+        for (uint i = 0; i < b.requests.length; i++) {
+            removeBillFromUser(b.requests[i], b.id);
+        }
+
+        removeBillFromUser(msg.sender, b.id);
+
+        // reset bill
+        _bills[b.id] = nullBill();
     }
 
     function leave(address _bill_owner, string calldata _title) public {
