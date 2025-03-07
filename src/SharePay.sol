@@ -115,20 +115,15 @@ contract SharePay is OwnableUpgradeable {
     }
 
     function removeBillFromUser(address _user, uint id) private {
-        if (_bills[id].owner == _user) {
-            require(msg.sender == _user, ErrUnauthorized());
-            setBillToNull(id);
-        }
-
         uint j = 0;
         uint i = 0;
-        for (; i < _bill_list[_user].length; i++) {
-            if (_bill_list[_user][j] == id) {
+        for (; j < _bill_list[_user].length; i++) {
+            if (_bill_list[_user][i] == id) {
                 j++;
             }
 
             if (j > i && j < _bill_list[_user].length) {
-                _bill_list[_user][i] == _bill_list[_user][j];
+                _bill_list[_user][i] = _bill_list[_user][j];
             }
 
             j++;
@@ -370,6 +365,35 @@ contract SharePay is OwnableUpgradeable {
 
         // reset bill
         _bills[b.id] = nullBill();
+    }
+
+    function adjustBillLastPayment(string calldata _title, int _time_adjustment) public {
+        if (_time_adjustment == 0) {
+            return;
+        }
+
+        Bill memory b = getBillByOwnerAndTitle(msg.sender, _title);
+        if (_time_adjustment > 0) {
+            if (_bills[b.id].last_payment == 0) {
+                _bills[b.id].start_payment += uint(_time_adjustment);
+            } else {
+                _bills[b.id].last_payment += uint(_time_adjustment);
+            }
+        } else {
+            if (_bills[b.id].last_payment == 0) {
+                _bills[b.id].start_payment -= uint(-1*_time_adjustment);
+            } else {
+                _bills[b.id].last_payment -= uint(-1*_time_adjustment);
+            }
+        }
+
+        // Pause all participants. They must agree to the time change. They do this by unpausing themselves.
+        if (_bills[b.id].participants.length > 0) {
+            _bills[b.id].paused_participants = new address[](_bills[b.id].participants.length);
+            for (uint i = 0; i < _bills[b.id].participants.length; i++) {
+                _bills[b.id].paused_participants[i] = _bills[b.id].participants[i];
+            }
+        }
     }
 
     function leave(address _bill_owner, string calldata _title) public {
