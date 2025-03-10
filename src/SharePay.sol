@@ -146,7 +146,7 @@ contract SharePay is OwnableUpgradeable {
     function createBill(string calldata _title, uint _amount, uint _delta, uint _start) public billNotExists(msg.sender, _title) {
         uint id = getNextId();
         _bills[id] = Bill({id: id, owner: msg.sender, title: _title, amount: _amount, remainder_index: 0, 
-        delta: _delta, last_payment: 0, start_payment: _start, participants: new address[](0), requests: new address[](0), paused_participants: new address[](0)});
+        delta: _delta, last_payment: 0, start_payment: block.timestamp + _start, participants: new address[](0), requests: new address[](0), paused_participants: new address[](0)});
 
         addBillToUser(msg.sender, id);
     }
