@@ -6,9 +6,13 @@ import {SharePay} from "../src/SharePay.sol";
 
 contract SharePayTest is Test {
     SharePay public pay;
+    address public owner;
+    address public participant;
 
     function setUp() public {
         pay = new SharePay();
+        owner = address(123);
+        participant = address(124);
     }
 
     function establishParticipants(address _owner, string memory _title, address[] memory participants) private {
@@ -21,8 +25,8 @@ contract SharePayTest is Test {
         }
     }
 
-    function establishParticipant(address _owner, string memory _title, address participant) private {
-        vm.prank(participant);
+    function establishParticipant(address _owner, string memory _title, address _participant) private {
+        vm.prank(_participant);
         pay.requestToJoin(_owner, _title);
 
         vm.prank(_owner);
@@ -56,8 +60,6 @@ contract SharePayTest is Test {
 
     function test_AddParticipant() public {
         string memory bill_name = "test_bill";
-        address owner = address(0);
-        address participant = address(1);
 
         // create bill
         vm.prank(owner);
@@ -73,18 +75,18 @@ contract SharePayTest is Test {
         assertEq(b.participants.length, 0);
 
         // failure case (non-owner)
+        vm.prank(participant);
         vm.expectRevert();
         pay.acceptRequest(bill_name, participant);
 
         // accept participation
         vm.prank(owner);
-        pay.acceptRequest(bill_name, address(1));
+        pay.acceptRequest(bill_name, participant);
         b = pay.getBillByOwnerAndTitle(owner, bill_name);
         assertEq(b.participants.length, 1);
     }
 
     function test_Payments() public {
-        address owner = address(0);
         string memory _bill_name = "test_bill";
         address[] memory participants = new address[](4);
         for (uint160 i = 0; i < participants.length; i++) {
@@ -135,8 +137,6 @@ contract SharePayTest is Test {
     }
 
     function test_Pause() public {
-        address owner = address(0);
-        address participant = address(1234);
         string memory bill_name = "test_bill";
         
         // Fund accounts
@@ -162,6 +162,8 @@ contract SharePayTest is Test {
         // Pause
         vm.prank(participant);
         pay.pause(owner, bill_name);
+
+        assertEq(pay.isPaused(owner, "test_bill", participant), true);
         
         vm.prank(owner);
         vm.expectRevert();
@@ -178,7 +180,6 @@ contract SharePayTest is Test {
     }
 
     function test_Leave() public {
-        address owner = address(0);
         address[] memory participants = new address[](2);
         string memory bill_name = "test_bill";
         for (uint160 i = 0; i < participants.length; i++) {
@@ -228,8 +229,6 @@ contract SharePayTest is Test {
     }
 
     function test_Withdrawls() public {
-        address owner = address(0);
-        address participant = address(2);
         vm.deal(owner, 1000 ether);
         vm.deal(participant, 1000 ether);
 
@@ -264,8 +263,6 @@ contract SharePayTest is Test {
     }
 
     function test_ListBills() public {
-        address owner = address(0);
-        address participant = address(2);
         vm.deal(owner, 1000 ether);
         vm.deal(participant, 1000 ether);
 
@@ -299,5 +296,174 @@ contract SharePayTest is Test {
         SharePay.Bill[] memory bills_part = pay.getBills(participant);
         assertEq(bills_part.length, 1);
         assertEq(bills_part[0].owner, owner);
+    }
+
+    function test_CancelBillReuseIDs() public {
+        uint[3] memory ids = [uint(0), 0, 0];
+
+        // Create Bills
+        vm.prank(owner);
+        ids[0] = pay.createBill("test1", 10 ether, 4 weeks, 0);
+
+        vm.prank(owner);
+        ids[1] = pay.createBill("test2", 10 ether, 4 weeks, 0);
+
+        assertEq(ids[0], 0);
+        assertEq(ids[1], 1);
+
+        SharePay.Bill memory b = pay.getBill(ids[1]);
+        assertEq(b.title, "test2");
+
+        // Cancel the bill
+        vm.prank(owner);
+        pay.cancelBill(b.title);
+
+        // Bill should no longer exist
+        vm.expectRevert();
+        b = pay.getBill(ids[1]);
+
+        // Recreate the same bill
+        vm.prank(owner);
+        ids[2] = pay.createBill("test2", 10 ether, 4 weeks, 0);
+
+        // Test that id was reused since it was available again
+        assertEq(ids[2], 1);
+        b = pay.getBill(ids[2]);
+        assertEq(b.title, "test2");
+    }
+
+    function test_CancelRequests() public {
+        vm.prank(owner);
+        pay.createBill("test1", 10 ether, 4 weeks, 0);
+
+        vm.prank(owner);
+        pay.createBill("test2", 10 ether, 4 weeks, 0);
+
+        vm.prank(participant);
+        pay.requestToJoin(owner, "test1");
+
+        // Get list of requests
+        vm.prank(participant);
+        SharePay.Bill[] memory bills = pay.getPendingRequests();
+
+        assertEq(bills.length, 1);
+
+        vm.prank(participant);
+        pay.requestToJoin(owner, "test2");
+
+        // Get list of requests
+        vm.prank(participant);
+        bills = pay.getPendingRequests();
+
+        assertEq(bills.length, 2);
+        assertEq(bills[0].title, "test1");
+        assertEq(bills[1].title, "test2");
+
+        vm.prank(participant);
+        vm.expectRevert();
+        pay.cancelRequestToJoin(owner, "test3");
+
+        vm.prank(participant);
+        pay.cancelRequestToJoin(owner, "test1");
+
+        vm.prank(participant);
+        bills = pay.getPendingRequests();
+        assertEq(bills.length, 1);
+        assertEq(bills[0].title, "test2");
+
+        vm.prank(participant);
+        pay.cancelRequestToJoin(owner, "test2");
+
+        vm.prank(participant);
+        bills = pay.getPendingRequests();
+        assertEq(bills.length, 0);
+
+        vm.prank(participant);
+        vm.expectRevert();
+        pay.cancelRequestToJoin(owner, "test2");
+    }
+
+    function test_DeclineRequest() public {
+        vm.prank(owner);
+        pay.createBill("test1", 10 ether, 4 weeks, 0);
+
+        vm.prank(participant);
+        pay.requestToJoin(owner, "test1");
+
+        vm.prank(participant);
+        SharePay.Bill[] memory bills = pay.getPendingRequests();
+        assertEq(bills.length, 1);
+
+        vm.prank(owner);
+        pay.declineRequestToJoin(participant, "test1");
+
+        vm.prank(participant);
+        bills = pay.getPendingRequests();
+        assertEq(bills.length, 0);
+    }
+
+    function test_RemoveParticipant() public {
+        vm.prank(owner);
+        uint id = pay.createBill("test1", 10 ether, 4 weeks, 0);
+
+        vm.prank(participant);
+        pay.requestToJoin(owner, "test1");
+
+        vm.prank(owner);
+        pay.acceptRequest("test1", participant);
+
+        SharePay.Bill memory bill = pay.getBill(id);
+        assertEq(bill.participants.length, 1);
+        assertEq(bill.participants[0], participant);
+
+        vm.prank(owner);
+        pay.removeParticipant(participant, "test1");
+
+        bill = pay.getBill(id);
+        assertEq(bill.participants.length, 0);
+    }
+
+    function test_AdjustTime() public {
+        vm.prank(owner);
+        uint id = pay.createBill("test1", 10 ether, 4 weeks, 1 weeks);
+
+        // Test adjust before payment
+        SharePay.Bill memory bill = pay.getBill(id);
+        assertEq(bill.last_payment, 0);
+        assertEq(bill.start_payment, block.timestamp + 1 weeks);
+
+        vm.prank(owner);
+        pay.adjustBillLastPayment("test1", 1 weeks);
+        bill = pay.getBill(id);
+        assertEq(bill.start_payment, block.timestamp + 2 weeks);
+
+        // Test adjust after payment
+        vm.deal(owner, 1000 ether);
+        vm.deal(participant, 1000 ether);
+
+        vm.prank(owner);
+        pay.deposit{value: 100 ether}();
+
+        vm.prank(participant);
+        pay.deposit{value: 100 ether}();
+
+        vm.prank(participant);
+        pay.requestToJoin(owner, "test1");
+
+        vm.prank(owner);
+        pay.acceptRequest("test1", participant);
+        vm.warp(block.timestamp + 3 weeks);
+
+        vm.prank(owner);
+        pay.acceptPayment("test1");
+        bill = pay.getBill(id);
+
+        // minus 1 week since payment delta is 2 weeks, and we jumped ahead 3 weeks
+        assertEq(bill.last_payment, block.timestamp - 1 weeks);
+
+        vm.prank(owner);
+        pay.adjustBillLastPayment("test1", 1 weeks);
+        bill = pay.getBill(id);
+        assertEq(bill.last_payment, block.timestamp);
     }
 }

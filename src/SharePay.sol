@@ -21,9 +21,11 @@ contract SharePay is OwnableUpgradeable {
     error ErrBillDoesNotExist();
     error ErrBillExists();
     error ErrIdNotFound();
+    error ErrRequestNotFound();
     error ErrUnauthorized();
     error ErrPendingRequest();
     error ErrAlreadyParticipant();
+    error ErrBillAddedToParticipant();
 
     event ArchiveBill(uint indexed id, address indexed owner, string indexed title, Bill bill);
 
@@ -35,12 +37,12 @@ contract SharePay is OwnableUpgradeable {
     mapping(address => uint[]) private _bill_list;
     mapping(address => uint) private _request_count;
 
-    constructor() initializer {
+    function initialize() public initializer {
         OwnableUpgradeable.__Ownable_init(msg.sender);
     }
 
-    function initialize() public initializer {
-        OwnableUpgradeable.__Ownable_init(msg.sender);
+    constructor() initializer {
+        initialize();
     }
 
     receive() external payable {
@@ -56,8 +58,18 @@ contract SharePay is OwnableUpgradeable {
 
     modifier billNotExists(address _bill_owner, string calldata _title) {
         for (uint i = 0; i < _bill_list[_bill_owner].length; i++) {
-            if (areStringsEqual(_bills[_bill_list[_bill_owner][i]].title, _title)) {
+            if (areStringsEqual(_bills[_bill_list[_bill_owner][i]].title, _title) && _bills[_bill_list[_bill_owner][i]].owner == _bill_owner) {
                 revert ErrBillExists();
+            }
+        }
+
+        _;
+    }
+
+    modifier billNotAddedToParticipant(address _participant, uint _id) {
+        for (uint i = 0; i < _bill_list[_participant].length; i++) {
+            if (_bill_list[_participant][i] == _id) {
+                revert ErrBillAddedToParticipant();
             }
         }
 
@@ -71,19 +83,19 @@ contract SharePay is OwnableUpgradeable {
     /* Bill Manipulations */
 
     // Create a null bill
-    function nullBill() public view returns (Bill memory) {
+    function nullBill() private view returns (Bill memory) {
         return Bill(0, 0, 0, 0, 0, 0, msg.sender, "", new address[](0), new address[](0), new address[](0));
     }
 
     // Check if a bill is null
-    function isBillNull(Bill memory b) public pure returns(bool) {
+    function isBillNull(Bill memory b) private pure returns(bool) {
         return b.amount == 0;
     }
 
     function setBillToNull(uint id) private {
         require(_bills[id].owner == msg.sender, ErrUnauthorized());
 
-        _bills[id].amount = 0;
+        _bills[id] = nullBill();
     }
 
     function getNextId() private returns(uint) {
@@ -110,7 +122,7 @@ contract SharePay is OwnableUpgradeable {
         return retval;
     }
 
-    function addBillToUser(address user, uint id) private billExists(id) {
+    function addBillToUser(address user, uint id) private billExists(id) billNotAddedToParticipant(user, id) {
         _bill_list[user].push(id);
     }
 
@@ -143,12 +155,14 @@ contract SharePay is OwnableUpgradeable {
     }
 
     // Create a bill
-    function createBill(string calldata _title, uint _amount, uint _delta, uint _start) public billNotExists(msg.sender, _title) {
+    function createBill(string calldata _title, uint _amount, uint _delta, uint _start) public billNotExists(msg.sender, _title) returns(uint) {
         uint id = getNextId();
         _bills[id] = Bill({id: id, owner: msg.sender, title: _title, amount: _amount, remainder_index: 0, 
         delta: _delta, last_payment: 0, start_payment: block.timestamp + _start, participants: new address[](0), requests: new address[](0), paused_participants: new address[](0)});
 
         addBillToUser(msg.sender, id);
+
+        return id;
     }
 
     // Get a bill
@@ -161,7 +175,7 @@ contract SharePay is OwnableUpgradeable {
 
     function getBillByOwnerAndTitle(address _bill_owner, string calldata _title) public view returns (Bill memory) {
         for (uint i = 0; i < _bill_list[_bill_owner].length; i++) {
-            if (areStringsEqual(_bills[_bill_list[_bill_owner][i]].title, _title)) {
+            if (areStringsEqual(_bills[_bill_list[_bill_owner][i]].title, _title) && _bills[_bill_list[_bill_owner][i]].owner == _bill_owner) {
                 return _bills[_bill_list[_bill_owner][i]];
             }
         }
@@ -210,6 +224,7 @@ contract SharePay is OwnableUpgradeable {
     // Generic request cancellation
     function cancelRequest(address _bill_owner, string calldata _title, address _requester, bool _accepted) private {
         Bill memory bill = getBillByOwnerAndTitle(_bill_owner, _title);
+        uint prev_len = bill.requests.length;
 
         for (uint i = 0; i < bill.requests.length; i++) {
             if (bill.requests[i] == _requester) {
@@ -219,6 +234,10 @@ contract SharePay is OwnableUpgradeable {
                 _bills[bill.id].requests.pop();
                 _request_count[_requester]--;
             }
+        }
+
+        if (prev_len == _bills[bill.id].requests.length) {
+            revert ErrRequestNotFound();
         }
 
         if (!_accepted) {
@@ -364,7 +383,12 @@ contract SharePay is OwnableUpgradeable {
         removeBillFromUser(msg.sender, b.id);
 
         // reset bill
-        _bills[b.id] = nullBill();
+        setBillToNull(b.id);
+
+        // make id available
+        if (_available_ids.length < _max_available_ids) {
+            _available_ids.push(b.id);
+        }
     }
 
     function adjustBillLastPayment(string calldata _title, int _time_adjustment) public {
