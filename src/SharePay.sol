@@ -2,8 +2,9 @@
 pragma solidity ^0.8.13;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-contract SharePay is OwnableUpgradeable {
+contract SharePay is UUPSUpgradeable, OwnableUpgradeable {
     struct Bill {
         uint id;
         uint amount;
@@ -44,6 +45,8 @@ contract SharePay is OwnableUpgradeable {
     constructor() initializer {
         initialize();
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     receive() external payable {
         deposit();
